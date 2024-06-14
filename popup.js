@@ -7,27 +7,30 @@ document.getElementById('apply-scale').addEventListener('click', () => {
   });
 
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-    chrome.scripting.executeScript({
-      target: { tabId: tabs[0].id },
-      func: applyScale,
-      args: [height, width]
-    });
-  });
+    const tab = tabs[0];
+    if (!tab.url.startsWith('chrome://')) {
+      chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        func: applyScale,
+        args: [height, width]
+      }, () => {
+        window.close();  // Close the popup after executing the script
+      });
 
-  // Listen for click events to stop the scale
-  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-    chrome.scripting.executeScript({
-      target: { tabId: tabs[0].id },
-      func: addClickEvent
-    });
-  });
+      // Listen for click events to stop the scale
+      chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        func: addClickEvent
+      });
 
-  // Listen for double tap events to stop the scale
-  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-    chrome.scripting.executeScript({
-      target: { tabId: tabs[0].id },
-      func: addDoubleClickEvent
-    });
+      // Listen for double tap events to stop the scale
+      chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        func: addDoubleClickEvent
+      });
+    } else {
+      console.error('Cannot run script on chrome:// URLs');
+    }
   });
 });
 
@@ -46,7 +49,58 @@ function applyScale(height, width) {
   scale.style.zIndex = '9999';
   scale.style.width = width + 'px';
   scale.style.height = height + 'px';
-  scale.style.backgroundImage = 'repeating-linear-gradient(to bottom, transparent, transparent 9px, black 10px)';
+  scale.style.left = '50%';
+  scale.style.top = '50%';
+  scale.style.transform = 'translate(-50%, -50%)';
+
+  // Create the horizontal scale divisions and markings
+  const horizontalDivisions = Math.floor(width / 50);
+  for (let i = 0; i <= horizontalDivisions; i++) {
+    const mark = document.createElement('div');
+    mark.style.position = 'absolute';
+    mark.style.height = '10px';
+    mark.style.width = '1px';
+    mark.style.backgroundColor = 'black';
+    mark.style.left = `${i * 50}px`;
+    mark.style.top = '0';
+
+    // Add a label for each horizontal division
+    const label = document.createElement('span');
+    label.style.position = 'absolute';
+    label.style.bottom = '-20px';
+    label.style.left = `${i * 50}px`;
+    label.style.fontSize = '10px';
+    label.style.transform = 'translateX(-50%) rotate(-90deg)';
+    label.textContent = `${i * 50}`;
+
+    scale.appendChild(mark);
+    scale.appendChild(label);
+  }
+
+  // Create the vertical scale divisions and markings
+  const verticalDivisions = Math.floor(height / 50);
+  for (let i = 0; i <= verticalDivisions; i++) {
+    const mark = document.createElement('div');
+    mark.style.position = 'absolute';
+    mark.style.width = '10px';
+    mark.style.height = '1px';
+    mark.style.backgroundColor = 'black';
+    mark.style.top = `${i * 50}px`;
+    mark.style.left = '0';
+
+    // Add a label for each vertical division
+    const label = document.createElement('span');
+    label.style.position = 'absolute';
+    label.style.top = `${i * 50}px`;
+    label.style.left = '-20px';
+    label.style.fontSize = '10px';
+    label.style.transform = 'translateY(-50%)';
+    label.textContent = `${i * 50}`;
+
+    scale.appendChild(mark);
+    scale.appendChild(label);
+  }
+
   document.body.appendChild(scale);
 
   document.addEventListener('mousemove', (event) => {
